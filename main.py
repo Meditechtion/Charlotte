@@ -6,6 +6,8 @@ import argparse
 import xss_payloads
 from sqli import sqli_payloads
 
+from menu import interactive_menu, MenuChoice
+
 
 class Charlotte:
     def __init__(self, url):
@@ -93,17 +95,14 @@ class Charlotte:
                 for payloads in sqli_payloads:
                     # Timing the request with the payload with a true condition
                     start_time_true = time.time()
-                    response_true = self.submit_forms(form, payloads[0], url)
                     end_time_true = time.time()
 
                     # Timing the request with the payload with a false condition
                     start_time_false = time.time()
-                    response_false = self.submit_forms(form, payloads[1], url)
                     end_time_false = time.time()
 
                     # Timing the request with the payload with a generic payload
                     start_time_generic = time.time()
-                    response_generic = self.submit_forms(form, payloads[3], url)
                     end_time_generic = time.time()
 
                     time_delta_true = start_time_true - end_time_true
@@ -136,51 +135,29 @@ class Charlotte:
                     # Calculate response lengths
                     length_true = len(response_true.text)
                     length_false = len(response_false.text)
-                    length_test = len(response_test)
+                    length_test = len(response_test.text)
 
                     # Compare lengths
                     if not length_false == length_true == length_test:
                         print("POSSIBLE SQL INJECTION DISCOVERED IN URL: " + url)
 
+    def exit(self):
+        print("'Goodbye' - Charlotte, your friendly spider")
+        exit()
+
     def run_interactive_menu(self):
-        while True:
-            print("\n=== Hello! I am Charlotte, a friendly spider who knows the web. Please enter a number to allow "
-                  "me to show you around! ===")
-            print("1. Discover Directories")
-            print("2. Extract Forms")
-            print("3. XSS Testing in Forms")
-            print("4. Time-Based SQL Injection Testing")
-            print("5. XSS Testing in Links")
-            print("6. SQL Injection Testing")
-            print("7. Exit")
-
-            choice = input("Enter your choice (1-7): ")
-
-            if choice == '1':
-                path_to_dict = input("Enter the path to the directory dictionary: ")
-                self.discover(path_to_dict)
-            elif choice == '2':
-                url = input("Enter the URL to extract forms from: ")
-                forms = self.extract_forms(url)
-                print("Extracted Forms:")
-                for form in forms:
-                    print(form)
-            elif choice == '3':
-                path_to_payloads = input("Enter the path to XSS payloads (leave empty for default): ")
-                self.xss_in_form(path_to_payloads)
-            elif choice == '4':
-                self.time_based_sqli()
-            elif choice == '5':
-                url = input("Enter the URL to test for XSS in links: ")
-                path_to_payloads = input("Enter the path to XSS payloads (leave empty for default): ")
-                self.xss_in_link(url, path_to_payloads)
-            elif choice == '6':
-                self.sqli()
-            elif choice == '7':
-                print("Exiting Charlotte. Goodbye!")
-                break
+        try:
+            choice = int(interactive_menu())
+            if 0 < choice <= len(MenuChoice):
+                selected_function = MenuChoice(choice)
+                getattr(self, selected_function.name.lower())()  # Call the selected function
+                if selected_function == MenuChoice.EXIT:
+                    self.exit()  # Call the exit function when "Exit" is selected
             else:
                 print("Invalid choice. Please enter a number between 1 and 7.")
+        except ValueError:
+            print("Invalid input. Please enter a valid integer.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interactive Security Testing with Charlotte")
