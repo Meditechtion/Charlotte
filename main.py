@@ -14,6 +14,7 @@ class Charlotte:
         self.url = url
         self.session = requests.session()
 
+# Discover hidden / misconfigured directories WITHIN the web page via a dictionary
     def discover(self, path_to_dict):
         print("INITIATING DISCOVERY FOR URL: " + self.url)
         with open(path_to_dict, 'r') as dictionary:
@@ -22,11 +23,13 @@ class Charlotte:
                 if response.status_code == 200:
                     print("FOUND DIRECTORY: " + self.url + line)
 
+# Extract forms for input later
     def extract_forms(self, url):
         response = self.session.get(url)
         parsed_html = BeautifulSoup(response.content, features='lxml')
         return parsed_html.findAll('form')
 
+# Input payloads to the webpage
     def submit_forms(self, form, value, url):
         action = form.get("action")
         post_url = urlparse.urljoin(url, action)
@@ -44,6 +47,7 @@ class Charlotte:
             return requests.post(post_url, data=post_data)
         return self.session.get(post_url, params=post_data)
 
+# Crawl the website in order to test every form in the domain
     def extract_same_site_urls(self, page_url):
         response = self.session.get(page_url)
 
@@ -65,6 +69,7 @@ class Charlotte:
             print(f"Failed to retrieve page: {page_url}")
             return []
 
+# Search for the reflection of Javascript / HTML code
     def xss_in_form(self, path_to_payloads=None):
         urls = self.extract_same_site_urls(self.url)
         for url in urls:
@@ -87,6 +92,7 @@ class Charlotte:
                         if matches:
                             print("XSS SUCCESSFUL FOR PAYLOAD: " + payload)
 
+# Check if different boolean values of SQL injections cause different behaviors, suggesting compromise
     def time_based_sqli(self):
         urls = self.extract_same_site_urls(self.url)
         for url in urls:
@@ -95,14 +101,17 @@ class Charlotte:
                 for payloads in sqli_payloads:
                     # Timing the request with the payload with a true condition
                     start_time_true = time.time()
+                    response_true = self.submit_forms(form, payloads[0], url)
                     end_time_true = time.time()
 
                     # Timing the request with the payload with a false condition
                     start_time_false = time.time()
+                    response_false = self.submit_forms(form, payloads[1], url)
                     end_time_false = time.time()
 
                     # Timing the request with the payload with a generic payload
                     start_time_generic = time.time()
+                    response_generic = self.submit_forms(form, payloads[2], url)
                     end_time_generic = time.time()
 
                     time_delta_true = start_time_true - end_time_true
@@ -113,6 +122,7 @@ class Charlotte:
                     if not time_delta_generic == time_delta_false == time_delta_true:
                         print("TIME BASED SQL INJECTION DISCOVERED IN URL: " + url)
 
+# Check for reflection of Javascript / HTML code in the url as well
     def xss_in_link(self, url, path_to_payloads=None):
             if path_to_payloads:
                 with open(path_to_payloads, 'r') as payloads:
@@ -122,6 +132,7 @@ class Charlotte:
                         if response.status_code == 200 and payload in response.text:
                             print("FOUND XSS IN URL: ", modified_url)
 
+# Inject standard SQL payloads, check the size of the response to compare variations
     def sqli(self):
         urls = self.extract_same_site_urls(self.url)
         for url in urls:
@@ -145,6 +156,7 @@ class Charlotte:
         print("'Goodbye' - Charlotte, your friendly spider")
         exit()
 
+# Using ENUM and getattr to dynamically generate Charlotte's functions
     def run_interactive_menu(self):
         try:
             choice = int(interactive_menu())
