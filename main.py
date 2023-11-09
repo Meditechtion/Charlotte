@@ -165,6 +165,7 @@ class Charlotte:
                     # Compare lengths
                     if not time_delta_generic == time_delta_false == time_delta_true:
                         print("TIME BASED SQL INJECTION DISCOVERED IN URL: " + url)
+                        print("IN FORM: " + form)
 
 # Check for reflection of Javascript / HTML code in the url as well
     def xss_in_link(self, url, path_to_payloads=None):
@@ -195,6 +196,7 @@ class Charlotte:
                     # Compare lengths
                     if not length_false == length_true == length_test:
                         print("POSSIBLE SQL INJECTION DISCOVERED IN URL: " + url)
+                        print("IN FORM: " + form)
 
     def exit(self):
         print("'Goodbye' - Charlotte, your friendly spider")
