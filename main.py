@@ -10,6 +10,7 @@ import xss_payloads
 from sqli import sqli_payloads
 
 from menu import interactive_menu, MenuChoice
+from ssrf_payloads import payloads as ssrf_payloads
 
 
 class Charlotte:
@@ -24,7 +25,7 @@ class Charlotte:
             for line in dictionary:
                 response = self.session.head(self.url + line)
                 if response.status_code == 200:
-                    print("FOUND DIRECTORY: " + self.url + line)
+                    print(f"FOUND DIRECTORY: {self.url} + {line}")
 
     # Extract forms for input later
     def extract_forms(self, url):
@@ -45,21 +46,29 @@ class Charlotte:
 
     # Input payloads to the webpage
     def submit_forms(self, form, value, url):
-        action = form.get("action")
-        post_url = urlparse.urljoin(url, action)
-        method = form.get("method")
+        try:
+            action = form.get("action")
+            post_url = urlparse.urljoin(url, action)
+            method = form.get("method")
 
-        inputs_list = form.findAll("input")
-        post_data = {}
-        for input in inputs_list:
-            input_name = input.get("name")
-            input_value = input.get("value")
-            if input_value == 'text':
-                input_value = value
-            post_data[input_name] = input_value
-        if method == "post":
-            return requests.post(post_url, data=post_data)
-        return self.session.get(post_url, params=post_data)
+            inputs_list = form.findAll("input")
+            post_data = {}
+            for some_input in inputs_list:
+                input_name = some_input.get("name")
+                input_value = some_input.get("value")
+                if input_value == 'text':
+                    input_value = value
+                post_data[input_name] = input_value
+            if method == "post":
+                response = self.session.post(post_url, data=post_data)
+            else:
+                response = self.session.get(post_url, params=post_data)
+            response.raise_for_status()  # Raise an HTTPError for bad responses
+            return response
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error submitting form for URL {url}. Exception: {e}")
+            return None
 
     # Crawl the website in order to test every form in the domain
     def extract_same_site_urls(self, page_url):
@@ -67,13 +76,9 @@ class Charlotte:
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-
             base_domain = self.url
-
             pattern = re.compile(r'^https?://' + re.escape(base_domain) + r'/\S*$')
-
             all_links = soup.find_all('a', href=True)
-
             same_site_urls = [urlparse.urljoin(page_url, link['href']) for link in all_links if
                               pattern.match(urlparse.urljoin(page_url, link['href']))]
 
@@ -86,9 +91,8 @@ class Charlotte:
     # Search for the reflection of Javascript / HTML code
     def xss_in_form(self, urls: List[Text] = None, path_to_payloads: Text = None):
         """
-        :param url: Will be accepted if the program iterates over many URLs concurrently, thus letting a higher order function do the concurrence on it's own
-        :param path_to_payloads:
-        :return:
+        :param urls: Will be accepted if the program iterates over many URLs concurrently, thus letting a higher
+        order function do the concurrence on its own :param path_to_payloads: :return:
         """
         if not urls:
             urls = self.extract_same_site_urls(self.url)
@@ -102,8 +106,8 @@ class Charlotte:
                             response = self.submit_forms(form, payload, url)
                             matches = alert_pattern.findall(response.text)
                             if matches:
-                                print("XSS SUCCESSFUL FOR PAYLOAD: " + payload)
-                                print("IN FORM: " + form)
+                                print(f"+++ POSSIBLE XSS SUCCESSFUL FOR PAYLOAD: {payload}")
+                                print("IN FORM: " + str(form))
             else:
                 for form in forms:
                     for payload in xss_payloads.payloads:
@@ -111,8 +115,8 @@ class Charlotte:
                         response = self.submit_forms(form, payload, url)
                         matches = alert_pattern.findall(response.text)
                         if matches:
-                            print("XSS SUCCESSFUL FOR PAYLOAD: " + payload)
-                            print("IN FORM: " + form)
+                            print(f"+++ POSSIBLE XSS SUCCESSFUL FOR PAYLOAD: {payload}")
+                            print("IN FORM: " + str(form))
 
     # Dynamically generated, complex XSS payloads based on opening tags prior to input
     def advanced_xss_in_form(self, urls: List[Text] = None, path_to_payloads=None):
@@ -130,8 +134,8 @@ class Charlotte:
                             response = self.submit_forms(form, closing_tags_string + payload, url)
                             matches = alert_pattern.findall(response.text)
                             if matches:
-                                print("XSS SUCCESSFUL FOR ADVANCED PAYLOAD: " + closing_tags_string + payload)
-                                print("IN FORM: " + form)
+                                print(f"+++ POSSIBLE XSS SUCCESSFUL FOR ADVANCED PAYLOAD:  {closing_tags_string}/{payload}")
+                                print("IN FORM: " + str(form))
             else:
                 for form in forms:
                     closing_tags = self.extract_closing_tags_for_form(form)
@@ -141,8 +145,8 @@ class Charlotte:
                         response = self.submit_forms(form, closing_tags_string + payload, url)
                         matches = alert_pattern.findall(response.text)
                         if matches:
-                            print("XSS SUCCESSFUL FOR ADVANCED PAYLOAD: " + closing_tags_string + payload)
-                            print("IN FORM: " + form)
+                            print(f"+++ POSSIBLE XSS SUCCESSFUL FOR ADVANCED PAYLOAD:  {closing_tags_string}/{payload}")
+                            print("IN FORM: " + str(form))
 
     # Check if different boolean values of SQL injections cause different behaviors, suggesting compromise
     def time_based_sqli(self, urls: List[Text] = None):
@@ -154,17 +158,17 @@ class Charlotte:
                 for payloads in sqli_payloads:
                     # Timing the request with the payload with a true condition
                     start_time_true = time.time()
-                    response_true = self.submit_forms(form, payloads[0], url)
+                    self.submit_forms(form, payloads[0], url)
                     end_time_true = time.time()
 
                     # Timing the request with the payload with a false condition
                     start_time_false = time.time()
-                    response_false = self.submit_forms(form, payloads[1], url)
+                    self.submit_forms(form, payloads[1], url)
                     end_time_false = time.time()
 
                     # Timing the request with the payload with a generic payload
                     start_time_generic = time.time()
-                    response_generic = self.submit_forms(form, payloads[2], url)
+                    self.submit_forms(form, payloads[2], url)
                     end_time_generic = time.time()
 
                     time_delta_true = start_time_true - end_time_true
@@ -173,8 +177,8 @@ class Charlotte:
 
                     # Compare lengths
                     if not time_delta_generic == time_delta_false == time_delta_true:
-                        print("TIME BASED SQL INJECTION DISCOVERED IN URL: " + url)
-                        print("IN FORM: " + form)
+                        print(f"+++ TIME BASED SQL INJECTION DISCOVERED IN URL: {url}")
+                        print("IN FORM: " + str(form))
 
     # Check for reflection of Javascript / HTML code in the url as well
     def xss_in_link(self, url, path_to_payloads=None):
@@ -184,7 +188,7 @@ class Charlotte:
                     modified_url = url.replace("=", "=" + payload)
                     response = self.session.get(modified_url)
                     if response.status_code == 200 and payload in response.text:
-                        print("FOUND XSS IN URL: ", modified_url)
+                        print("+++ POSSIBLE FOUND XSS IN URL: ", modified_url)
 
     # Inject standard SQL payloads, check the size of the response to compare variations
     def sqli(self, urls: List[Text] = None):
@@ -207,8 +211,31 @@ class Charlotte:
 
                     # Compare lengths
                     if not length_false == length_true == length_test:
-                        print("POSSIBLE SQL INJECTION DISCOVERED IN URL: " + url)
-                        print("IN FORM: " + form)
+                        print("+++ POSSIBLE SQL INJECTION DISCOVERED IN URL: " + str(url))
+                        print("IN FORM: " + str(form))
+
+# Good ol' SSRF testing via injection to local resources
+    def ssrf(self, urls: List[Text] = None, path_to_payloads=None):
+        if not urls:
+            urls = self.extract_same_site_urls(self.url)
+        for url in urls:
+            forms = self.extract_forms(url)
+            if path_to_payloads:
+                with open(path_to_payloads, 'r') as payloads_content:
+                    for form in forms:
+                        for payload in payloads_content:
+                            response = self.submit_forms(form, payload, url)
+                            if response.status_code == 200:
+                                print("POSSIBLE SSRF DISCOVERED IN URL: " + str(url))
+                                print("IN FORM " + str(form))
+            else:
+                for form in forms:
+                    for payload in ssrf_payloads:
+                        response = self.submit_forms(form, payload, url)
+                        if response.status_code == 200:
+                            print("+++ POSSIBLE SSRF DISCOVERED IN URL: " + str(url))
+                            print("IN FORM " + str(form))
+
 
     def start(self):
         print("Starting web crawling and injection...")
@@ -231,12 +258,19 @@ class Charlotte:
         print("Web crawling and injection completed.")
         self.exit()
 
+#   Receive URLs concurrently and run them through all the scans.
     def process_url(self, url):
-        self.xss_in_form(urls=[url])
-        self.sqli(urls=[url])
-        self.time_based_sqli(urls=[url])
-        self.advanced_xss_in_form(urls=[url])
-        self.xss_in_link(url=url)
+        try:
+            print("INITIATING SCAN FOR URL: " + str(url))
+            self.xss_in_form(urls=[url])
+            self.sqli(urls=[url])
+            self.time_based_sqli(urls=[url])
+            self.advanced_xss_in_form(urls=[url])
+            self.xss_in_link(url=url)
+            self.ssrf(urls=[url])
+            print("FINISHED SCAN FOR URL: " + str(url))
+        except Exception as e:
+            print(f"Scan failed due to {e}")
 
     def exit(self):
         print('"Goodbye" - Charlotte, your friendly spider')

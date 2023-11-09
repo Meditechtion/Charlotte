@@ -12,10 +12,11 @@ def interactive_menu():
         print("5. Time-Based SQL Injection Testing")
         print("6. XSS Testing in Links")
         print("7. SQL Injection Testing")
-        print("8. Start complete scan")
-        print("7. Exit")
+        print("8. SSRF Testing")
+        print("9. Start complete scan")
+        print("10. Exit")
 
-        choice = input("Enter your choice (1-7): ")
+        choice = input("Enter your choice: ")
 
         return choice
 
@@ -28,5 +29,6 @@ class MenuChoice(Enum):
     TIME_BASED_SQI = auto()
     XSS_IN_LINK = auto()
     SQLI = auto()
+    SSRF = auto()
     START = auto()
     EXIT = auto()
