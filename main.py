@@ -15,7 +15,7 @@ from ssrf_payloads import payloads as ssrf_payloads
 
 class Charlotte:
     def __init__(self, url):
-        self.url = "https://www.ovo.id/"
+        self.url = url
         self.session = requests.session()
 
     # Discover hidden / misconfigured directories WITHIN the web page via a dictionary
@@ -220,6 +220,7 @@ class Charlotte:
         print("Web crawling and injection completed.")
         self.exit()
 
+    # A general threaded function wrapper for all other scans
     def threaded_scan(self, scan_function, urls):
         if not urls:
             urls = self.extract_same_site_urls(self.url)
